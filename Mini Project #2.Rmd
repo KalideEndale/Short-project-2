@@ -1,0 +1,127 @@
+---
+title: "Mini Project #2"
+author: "Kalide Endale"
+date: "10/12/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+__Loading packages I will need for this project__
+```{r, echo=FALSE}
+library(readr)
+library(tibble)
+library(ggplot2)
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+```
+
+
+*Import dataset into R*
+```{r }
+dir1 <- "/Users/Kalide/Documents/Northeastern/Introduction to Data Management and Processing"
+dir2 <- "Homeworks and Exercsies/NCAA-D1-APR-2003-14/DS0001/26801-0001-Data.csv"
+path <- file.path(dir1, dir2)
+NCAA_D1_APR_2003_14 <- read_csv(path, na = "-99")
+```
+
+
+
+*Creating tidied data frame with columns for School name, School ID, Sport code, Sport name, APR Year, APR score*
+```{r }
+TidyNCAADF <- NCAA_D1_APR_2003_14 %>%
+  select("SCL_NAME","SCL_UNITID", "SPORT_CODE", "SPORT_NAME",starts_with("APR_RATE"))
+
+colnames(TidyNCAADF)[5:15] <- c("2014", "2013", "2012", "2011", "2010",
+                                "2009", "2008", "2007", "2006", "2005", "2004")
+TidyNCAADF <- TidyNCAADF[, c(1,2,3,4,15,14,13,12,11,10,9,8,7,6,5)]
+
+tibble(TidyNCAADF)
+```
+
+
+
+*Creating a pivot_longer version of the tidied data frame to consolidate all APR data into one column*
+```{r}
+NCAA_D1_APR <- pivot_longer(TidyNCAADF, cols = 5:15, names_to = "APR_YEAR", values_to = "APR")
+
+tibble(NCAA_D1_APR)
+```
+
+
+__INTRODUCTION:__
+In 2004, the NCAA developed a metric that measures a team's academic success in order to hold institutions accountable for the academic progress of their student athletes. This metric was called Academic Progress Rate(APR). APR measures student athletes that receive athletically related financial aid and assigns points for grades and retention. A perfect team score is 1000 and a score below 930 (equivalent to 50%  graduation rate) means teams could face severe penalties by the NCAA--if score doesn't improve. The cumulative team score is what will be used to measure the academic performance of a sports team. This scoring index helps the NCAA reward institutions for high academic performances and penalizes institutions that don't prepare their student athletes for life post college. In my analysis below, i will try and look into at how APR scoring has improved over time and if some sport teams are generally higher academic performers than others.
+
+
+
+
+
+In the box and whisker plots below, I attempt to visualize the distribution of APR scores over time. 
+
+What we can see is that since the observation of this metric[2004] to 2014, the median APR score has gradually improved over time. Additionally, it seems like the entire box and whisker plot has consolidated over the years(both outliers and interquartile range). 
+
+Extra: The data points outside of the interquartile range were approaching the interquartile range over the years this metric was observed. Furthermore, the interquartile range itself was also wider in the earlier years of this metric and began to consolidate to become smaller over time. Simply stated, this tells us that the APR scores are getting better over time for schools. This bodes well for the NCAA since institutions are making more and more effort to make sure their athletes are excelling in the classroom.
+```{r}
+ggplot(NCAA_D1_APR, aes(x = APR, y = APR_YEAR, color = APR_YEAR)) +
+  geom_boxplot() +
+  labs(x = "Academic Progress Rate", 
+       y = "Year", 
+       title = "Distribution of NCAA Academic Progress Rate From 2004 to 2014",
+       subtitle = "The observed APR metric for institutions is improving over time",
+       color = "Year") +
+  theme_classic()
+```
+
+
+
+*Transform the tidied dataset to remove mixed sports, and create a column indicating the gender division of each sport. Sport codes 1-18 are men’s, and 19-37 are women’s*
+```{r}
+length(unique(NCAA_D1_APR$SPORT_CODE))
+NCAA_D1_APR2 <- NCAA_D1_APR[!(NCAA_D1_APR$SPORT_CODE=="38"), ]
+NCAA_D1_APR2 <- NCAA_D1_APR2 %>%
+  mutate(SPORT_TYPE = ifelse(SPORT_CODE %in% c(1:18),"Male", "Female"))
+
+tibble(NCAA_D1_APR2)
+```
+
+
+When the dataset is broken down by gender division, another theme begins to surface. The box and whisker plot shows that Women sports teams are generally better academic performers than their male counter parts(for each year: 2004 - 2014). Additionally, the distribution(described by the length of the box and whisker plot) for males is wider while the distribution for females is tighter. However, we can also say that both Males and Females have both improved their median APR score over time.
+```{r}
+c <- ggplot(NCAA_D1_APR2, aes(x= APR, y=APR_YEAR, fill = SPORT_TYPE)) + 
+  geom_boxplot() +
+  labs(x = "Academic Progress Rate", 
+       y = "Year", 
+       title = "Distribution of Academic Progress Rate Over Time 
+       Split by Women/Men Sports",
+       subtitle = "Women sports/student athletes are better academic performers
+       in regards to the APR metric") +
+  theme_classic()
+
+plot2 <-c + scale_fill_manual(name = "Gender Division", values = c("purple", "seagreen3"))
+
+plot2
+```
+
+
+As we investigate the APR scores of different men sport teams, we can see that football, basketball, baseball, indoor track, and outdoor track teams have a lower median APR score while men's cross country, fencing, golf, gymnastics, tennis, and water polo are on the higher-end of the APR median.
+
+source for theme: *https://www.statology.org/ggplot2-legend-size/*
+```{r}
+NCAA_D1_APR3 <- filter(NCAA_D1_APR2, SPORT_TYPE == "Male")
+
+ggplot(NCAA_D1_APR3, aes(x=APR, fill = SPORT_NAME)) +
+  geom_boxplot() +
+  labs(x = "Academic Progress Rate", 
+       title = "Distribution of Academic Progress Rate Over Time For Men Sports",
+       subtitle = "Athletes in popular sports are poorer academic performers",
+       fill = "Sport Name") +
+  theme_classic() +
+  theme(legend.key.size = unit(.5, 'cm'), #change legend key size
+        legend.key.height = unit(.5, 'cm'), #change legend key height
+        legend.key.width = unit(.5, 'cm'), #change legend key width
+        legend.title = element_text(size=10), #change legend title font size
+        legend.text = element_text(size=8)) #change legend text font size
+```
